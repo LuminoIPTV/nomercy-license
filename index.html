@@ -1,0 +1,102 @@
+<!DOCTYPE html>
+<html lang="az">
+<head>
+    <meta charset="UTF-8">
+    <title>NoMercy - Lisenziya Paneli</title>
+    <style>
+        body { background-color: #0b131a; color: #fff; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; display: flex; justify-content: center; align-items: center; height: 100vh; margin: 0; }
+        .card { background: #121e2b; padding: 30px; border-radius: 10px; box-shadow: 0 4px 15px rgba(0,0,0,0.5); width: 400px; border: 1px solid #00e5ee; }
+        h2 { color: #00e5ee; text-align: center; margin-top: 0; }
+        input { width: 100%; padding: 10px; margin: 10px 0; background: #0b131a; border: 1px solid #33475b; color: #fff; border-radius: 5px; box-sizing: border-box; }
+        button { width: 100%; padding: 12px; background: #00e5ee; border: none; color: #0b131a; font-weight: bold; border-radius: 5px; cursor: pointer; transition: 0.2s; }
+        button:hover { background: #00b3b8; }
+        .log { margin-top: 15px; font-size: 14px; text-align: center; color: #00e5ee; }
+    </style>
+</head>
+<body>
+
+<div class="card">
+    <h2>NoMercy Panel</h2>
+    <label>GitHub Token:</label>
+    <input type="password" id="token" placeholder="Tokeni bura yapışdır">
+    
+    <label>Müştərinin HWID Kodu:</label>
+    <input type="text" id="hwid" placeholder="Məsələn: NoMercy-8F92-AH71">
+    
+    <button onclick="lisansEkle()">Lisenziyanı Əlavə Et</button>
+    <div class="log" id="status"></div>
+</div>
+
+<script>
+async function lisansEkle() {
+    const token = document.getElementById('token').value.trim();
+    const newHwid = document.getElementById('hwid').value.trim();
+    const statusDiv = document.getElementById('status');
+
+    if(!token || !newHwid) {
+        statusDiv.style.color = "#ff4444";
+        statusDiv.innerText = "Token və HWID boş ola bilməz!";
+        return;
+    }
+
+    const owner = "LuminoIPTV";
+    const repo = "nomercy-license";
+    const path = "lisanslar.txt";
+
+    statusDiv.style.color = "#00e5ee";
+    statusDiv.innerText = "Əlavə edilir...";
+
+    try {
+        const getRes = await fetch(`https://api.github.com/repos/${owner}/${repo}/contents/${path}`, {
+            headers: { "Authorization": `token ${token}` }
+        });
+        
+        if(!getRes.ok) throw new Error("GitHub bağlantısı xətası! Tokeni yoxla.");
+        
+        const fileData = await getRes.json();
+        const sha = fileData.sha;
+        
+        let currentContent = "";
+        if(fileData.content) {
+            currentContent = decodeURIComponent(escape(atob(fileData.content)));
+        }
+
+        if(currentContent.includes(newHwid)) {
+            statusDiv.style.color = "#ff4444";
+            statusDiv.innerText = "Bu HWID artıq bazada var!";
+            return;
+        }
+
+        const updatedContent = currentContent + "\n" + newHwid;
+        const encodedContent = btoa(unescape(encodeURIComponent(updatedContent)));
+
+        const putRes = await fetch(`https://api.github.com/repos/${owner}/${repo}/contents/${path}`, {
+            method: "PUT",
+            headers: {
+                "Authorization": `token ${token}`,
+                "Content-Type": "application/json"
+            },
+            body: JSON.stringify({
+                message: "Yeni lisenziya: " + newHwid,
+                content: encodedContent,
+                sha: sha
+            })
+        });
+
+        if(putRes.ok) {
+            statusDiv.style.color = "#00e5ee";
+            statusDiv.innerText = "Uğurla əlavə olundu!";
+            document.getElementById('hwid').value = "";
+        } else {
+            throw new Error("Yadda saxlamaq alınmadı.");
+        }
+
+    } catch (error) {
+        statusDiv.style.color = "#ff4444";
+        statusDiv.innerText = "Xəta: " + error.message;
+    }
+}
+</script>
+
+</body>
+</html>
